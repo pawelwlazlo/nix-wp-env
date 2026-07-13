@@ -24,11 +24,13 @@ Scope decisions locked during brainstorming:
 ## Architecture & Components
 
 `devenv up` starts the whole stack; `devenv shell` puts PHP, Composer, and
-wp-cli on `PATH`. Everything is declared in a flake + devenv module.
+wp-cli on `PATH`. Everything is declared with **standard devenv** — `devenv.yaml`
+manages the nixpkgs input and there is **no top-level `flake.nix`** (decided
+2026-07-13, NER-208).
 
 | Component | Provided by | Role |
 |-----------|-------------|------|
-| Entry point | `flake.nix`, `devenv.nix`, `devenv.yaml` | Declarative env definition |
+| Entry point | `devenv.yaml`, `devenv.nix`, `.envrc` | Declarative env definition |
 | PHP-FPM | `languages.php` (v**8.4**) | Runs Bedrock; FPM pool behind Caddy |
 | Web server | `services.caddy` | Serves `web/`, PHP handler, **local HTTPS** |
 | Database | `services.mysql` (**MariaDB**) | The `wordpress` DB; data in `.devenv/state` |
@@ -48,9 +50,9 @@ Each component has one clear job and a well-defined seam:
 
 ```
 nix-wp-env/
-├── flake.nix              # thin: inputs (nixpkgs, devenv) → devenv module
+├── devenv.yaml            # devenv inputs (nixpkgs pin) — standard devenv, no flake.nix
 ├── devenv.nix             # php 8.4, caddy, mysql (mariadb), tasks, env
-├── devenv.yaml            # devenv inputs
+├── .envrc                 # `use devenv` — direnv auto-load
 ├── .env.example           # tracked: WP_ENV, WP_HOME, DB_* (dev defaults)
 ├── .env                   # gitignored: real local config + generated salts
 ├── composer.json          # Bedrock deps (roots/bedrock, plugins)
