@@ -63,9 +63,10 @@ in
     ];
   };
 
-  # ── Caddy (HTTP placeholder) ────────────────────────────────────────────────
+  # ── Caddy ───────────────────────────────────────────────────────────────────
   # Plain HTTP for now; local HTTPS + wp.localhost land in NER-210. Serves the
-  # placeholder docroot in web/ and hands .php off to the PHP-FPM pool socket.
+  # Bedrock docroot in web/ (NER-209) and hands .php off to the PHP-FPM pool
+  # socket.
   env.WP_PORT = httpPort;
 
   services.caddy = {
@@ -91,7 +92,7 @@ in
   # ── Shell greeting ──────────────────────────────────────────────────────────
   enterShell = ''
     echo ""
-    echo "nix-wp-env — devenv scaffold (NER-208)"
+    echo "nix-wp-env — Bedrock WordPress devenv"
     echo "  $(php -v | head -n1)"
     echo "  $(composer --version 2>/dev/null | head -n1)"
     echo "  $(wp --version 2>/dev/null)"
