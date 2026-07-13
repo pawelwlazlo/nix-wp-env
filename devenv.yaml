@@ -1,0 +1,6 @@
+# Standard devenv — there is no top-level flake.nix (decided 2026-07-13, NER-208).
+# devenv.yaml manages the nixpkgs input; devenv.lock pins the exact commit so
+# the environment is reproducible across macOS and Linux.
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
