@@ -89,6 +89,31 @@ in
   # (and the web server only starts once the DB is provisioned).
   processes.caddy.after = [ "devenv:mysql:configure" ];
 
+  # ── Tasks ───────────────────────────────────────────────────────────────────
+  # `wp:setup` (NER-211) idempotently bootstraps a cold checkout to a working,
+  # installed WordPress site: composer install, .env + salts, wait for
+  # MariaDB, ensure the DB exists, guarded `wp core install`. It depends on
+  # `devenv:mysql:configure` (the same task Caddy already waits on above), so
+  # it is downstream of the mysql process — plain `devenv up` does NOT run
+  # it. Run it explicitly with `devenv up --mode after` (boots the stack and
+  # then runs wp:setup + everything that depends on it) or on demand with
+  # `devenv tasks run wp:setup`.
+  tasks."wp:setup" = {
+    exec = "${config.devenv.root}/scripts/wp-setup.sh";
+    after = [ "devenv:mysql:configure" ];
+  };
+
+  # `wp:reset` (NER-211) drops and recreates the WordPress database, then
+  # reinstalls WordPress via the same guarded call `wp:setup` uses (see
+  # scripts/wp-install.sh). It assumes an already-bootstrapped stack (.env
+  # must already exist) and is destructive, so it is a MANUAL task only —
+  # deliberately not wired with `after`, so it never runs on `devenv up`
+  # (including `--mode after`). Run it explicitly with
+  # `devenv tasks run wp:reset`.
+  tasks."wp:reset" = {
+    exec = "${config.devenv.root}/scripts/wp-reset.sh";
+  };
+
   # ── Shell greeting ──────────────────────────────────────────────────────────
   enterShell = ''
     echo ""
