@@ -45,6 +45,9 @@ else
     sed "s|^${key}='generateme'\$|${key}='${value}'|" "$env_file" > "$tmp_env"
     mv "$tmp_env" "$env_file"
   done
+  # .env holds DB credentials + salts; the `cp`/`mv` above leave it at the
+  # umask default (typically 0644). Restrict it so it isn't world-readable.
+  chmod 600 "$env_file"
   echo "    generated .env with 8 distinct salts"
 fi
 
