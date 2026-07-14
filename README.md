@@ -21,24 +21,76 @@ macOS and Linux. Development only — not for production or deploy.
   experimental features enabled.
 - devenv. If it isn't installed globally you can run it straight from nixpkgs
   (prebuilt in the binary cache) — prefix every command below with
-  `nix run nixpkgs#devenv --`, e.g. `nix run nixpkgs#devenv -- up -d`.
+  `nix run nixpkgs#devenv --`, e.g. `nix run nixpkgs#devenv -- up --mode after -d`.
 
 ## Quick start
 
 ```bash
-devenv up -d          # start PHP-FPM, MariaDB, and Caddy (detached)
+nix run nixpkgs#devenv -- up --mode after -d   # start PHP-FPM, MariaDB, Caddy, then bootstrap WordPress (detached)
 ```
 
-Then open <http://localhost:8080> — you should see the placeholder `phpinfo()`
-page served by Caddy through PHP-FPM (proof the full path works).
+`--mode after` matters: `wp:setup` is a devenv task that runs downstream of the
+MariaDB process, and plain `devenv up` (the default `before` mode) does **not**
+run downstream tasks — it brings the stack up but skips the WordPress
+auto-install. `--mode after` is what actually runs `wp:setup` once MariaDB is
+provisioned.
+
+Then open <http://localhost:8080> — you should see an installed WordPress site
+(Bedrock docroot, served by Caddy through PHP-FPM). Admin login is at
+<http://localhost:8080/wp/wp-admin> (see [Admin credentials](#admin-credentials)
+below for the default username/password).
 
 ```bash
-devenv shell          # drop into a shell with php 8.4, composer, wp-cli on PATH
-devenv processes down  # stop all three processes
+nix run nixpkgs#devenv -- shell           # drop into a shell with php 8.4, composer, wp-cli on PATH
+nix run nixpkgs#devenv -- processes down  # stop all three processes
+```
+
+### Bootstrap tasks (`wp:setup` / `wp:reset`)
+
+`wp:setup` is idempotent: composer install (skipped if `vendor/`+`web/wp/`
+already exist) → generate `.env` + 8 distinct salts (skipped if `.env` already
+exists) → wait for MariaDB → create the `wordpress` DB if absent → guarded
+`wp core install` (skipped if WordPress is already installed) → print the site
+URL and admin login. Re-running it, or re-running `devenv up --mode after`, is
+always safe and non-destructive.
+
+```bash
+nix run nixpkgs#devenv -- tasks run wp:setup   # manual bootstrap (same thing --mode after runs automatically)
+nix run nixpkgs#devenv -- tasks run wp:reset   # clean slate: drops + recreates the DB, then reinstalls WordPress
+```
+
+`wp:reset` requires `.env` to already exist (run `wp:setup` first) — it drops
+and recreates the database via `wp db reset --yes`, then reinstalls WordPress
+with the same parameters `wp:setup` uses.
+
+If `.env` generation gets interrupted mid-way, remove `.env` and re-run
+`wp:setup` — an existing `.env` is left untouched, so a half-written one won't
+self-heal.
+
+### Admin credentials
+
+`wp:setup` / `wp:reset` install WordPress with dev-safe defaults, overridable
+via environment variables before running the task:
+
+| Variable             | Default              | Notes                                                       |
+|----------------------|-----------------------|--------------------------------------------------------------|
+| `WP_ADMIN_USER`      | `admin`               |                                                                |
+| `WP_ADMIN_PASSWORD`  | `password`            | **dev-only default — never use on an exposed environment**   |
+| `WP_ADMIN_EMAIL`     | `admin@example.com`   |                                                                |
+| `WP_TITLE`           | `nix-wp-env`           | site title                                                    |
+
+The site URL itself comes from `WP_HOME` in `.env` (default
+`http://localhost:8080`); admin login is at `<WP_HOME>/wp/wp-admin`.
+
+### Teardown
+
+```bash
+nix run nixpkgs#devenv -- processes down   # stop PHP-FPM, MariaDB, and Caddy
+rm -rf .devenv/state                       # wipe DB/Caddy/FPM state for a fully clean slate
 ```
 
 State (MariaDB data, Caddy config, FPM socket) lives under `.devenv/state/` and
-is gitignored. For a clean slate, `rm -rf .devenv/state` and `devenv up` again.
+is gitignored.
 
 ## Changing the HTTP port
 
@@ -57,7 +109,7 @@ in
 ```
 devenv.yaml     # devenv inputs (pins nixpkgs); devenv.lock is committed
 devenv.nix      # the environment: PHP 8.4 + FPM, MariaDB, Caddy, tooling
-web/            # docroot served by Caddy (placeholder index.php for now)
+web/            # Bedrock docroot served by Caddy (installed WordPress site after wp:setup)
 docs/           # design spec and notes
 ```
 
@@ -68,5 +120,5 @@ This repo is built up issue by issue (Linear project `nix-wp-env`):
 - **NER-208** — this scaffold (PHP 8.4 + MariaDB + Caddy over HTTP). ✅
 - **NER-209** — Bedrock application layout.
 - **NER-210** — local HTTPS + `wp.localhost`.
-- **NER-211** — `wp:setup` bootstrap + reset.
+- **NER-211** — `wp:setup` bootstrap + reset. ✅
 - **NER-212** — verify script + CI (Linux).
