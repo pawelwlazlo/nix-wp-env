@@ -7,9 +7,9 @@
 # Steps: composer install -> .env + salts -> wait for MariaDB -> ensure DB
 # exists -> guarded `wp core install` -> print summary.
 #
-# The `wp core install` call and the closing summary are factored into
-# scripts/wp-install.sh so scripts/wp-reset.sh (NER-211 task 2) can reuse the
-# exact same invocation instead of duplicating it.
+# The MariaDB wait loop, the `wp core install` call, and the closing summary
+# are factored into scripts/wp-install.sh so scripts/wp-reset.sh (NER-211
+# task 2) can reuse the exact same logic instead of duplicating it.
 
 set -euo pipefail
 
@@ -57,18 +57,9 @@ set +a
 
 # ── Step 3/6: wait for MariaDB ────────────────────────────────────────────
 echo "==> [3/6] waiting for MariaDB"
-db_host="${DB_HOST:-127.0.0.1}"
-max_tries=30
-tries=0
-until mysqladmin ping -h "$db_host" -u"$DB_USER" -p"$DB_PASSWORD" --silent >/dev/null 2>&1; do
-  tries=$((tries + 1))
-  if [ "$tries" -ge "$max_tries" ]; then
-    echo "ERROR: MariaDB not reachable at $db_host after ${max_tries}s — giving up" >&2
-    exit 1
-  fi
-  sleep 1
-done
-echo "    MariaDB is reachable at $db_host"
+# shellcheck source=/dev/null
+source "$repo_root/scripts/wp-install.sh"
+wait_for_mariadb
 
 # ── Step 4/6: ensure DB exists ────────────────────────────────────────────
 echo "==> [4/6] ensuring database '$DB_NAME' exists"
@@ -80,9 +71,8 @@ else
 fi
 
 # ── Steps 5-6/6: guarded wp core install + summary (shared with wp:reset) ──
+# scripts/wp-install.sh was already sourced in step 3 (for wait_for_mariadb).
 echo "==> [5/6] wp core install"
-# shellcheck source=/dev/null
-source "$repo_root/scripts/wp-install.sh"
 wp_core_install_guarded
 
 echo "==> [6/6] summary"

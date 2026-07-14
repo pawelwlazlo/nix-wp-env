@@ -103,6 +103,17 @@ in
     after = [ "devenv:mysql:configure" ];
   };
 
+  # `wp:reset` (NER-211) drops and recreates the WordPress database, then
+  # reinstalls WordPress via the same guarded call `wp:setup` uses (see
+  # scripts/wp-install.sh). It assumes an already-bootstrapped stack (.env
+  # must already exist) and is destructive, so it is a MANUAL task only —
+  # deliberately not wired with `after`, so it never runs on `devenv up`
+  # (including `--mode after`). Run it explicitly with
+  # `devenv tasks run wp:reset`.
+  tasks."wp:reset" = {
+    exec = "${config.devenv.root}/scripts/wp-reset.sh";
+  };
+
   # ── Shell greeting ──────────────────────────────────────────────────────────
   enterShell = ''
     echo ""
